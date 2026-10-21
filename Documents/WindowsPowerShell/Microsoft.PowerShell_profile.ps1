@@ -6,7 +6,7 @@ Set-Alias lg lazygit
 # pwsh 7 only: inline suggestions list + fzf (Ctrl+R history, Ctrl+T files)
 if ($PSVersionTable.PSVersion.Major -ge 7) {
     Import-Module CompletionPredictor
-    Set-PSReadLineOption -PredictionSource Plugin -PredictionViewStyle ListView -ErrorAction SilentlyContinue
+    Set-PSReadLineOption -PredictionSource Plugin -PredictionViewStyle InlineView -ErrorAction SilentlyContinue
     Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
     Import-Module PSFzf
     Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
