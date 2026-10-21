@@ -1,0 +1,7 @@
+[user]
+	email = 56480041+devnull03@users.noreply.github.com
+	name = devnull03
+[url "https://github.com/"]
+	insteadOf = git@github.com:
+[core]
+	longpaths = true

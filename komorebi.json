@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LGUG2Z/komorebi/v0.1.41/schema.json",
+  "app_specific_configuration_path": "$Env:USERPROFILE/applications.json",
+  "window_hiding_behaviour": "Cloak",
+  "cross_monitor_move_behaviour": "Insert",
+  "focus_follows_mouse": "Windows",
+  "default_workspace_padding": 6,
+  "default_container_padding": 6,
+  "ignore_rules": [
+    { "kind": "Exe", "id": "mpv.exe", "matching_strategy": "Equals" },
+    { "kind": "Exe", "id": "Lively.exe", "matching_strategy": "Equals" }
+  ],
+  "border": true,
+  "border_width": 3,
+  "border_offset": -1,
+  "animation": {
+    "enabled": true,
+    "duration": 200,
+    "style": "EaseOutCubic",
+    "fps": 60
+  },
+  "theme": {
+    "palette": "Base16",
+    "name": "Ashes",
+    "unfocused_border": "Base03",
+    "bar_accent": "Base0D"
+  },
+  "display_index_preferences": {
+    "0": "TMX1400-5&3a4c8c55&0&UID512",
+    "1": "ACR10CA-5&36a09c95&0&UID4352"
+  },
+  "monitors": [
+    {
+      "workspaces": [
+        { "name": "1", "layout": "BSP" },
+        { "name": "2", "layout": "VerticalStack" },
+        { "name": "3", "layout": "HorizontalStack" },
+        { "name": "4", "layout": "UltrawideVerticalStack" },
+        { "name": "5", "layout": "BSP" }
+      ]
+    },
+    {
+      "workspaces": [
+        { "name": "1", "layout": "BSP" },
+        { "name": "2", "layout": "VerticalStack" },
+        { "name": "3", "layout": "HorizontalStack" },
+        { "name": "4", "layout": "UltrawideVerticalStack" },
+        { "name": "5", "layout": "BSP" }
+      ]
+    }
+  ]
+}
