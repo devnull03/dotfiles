@@ -66,6 +66,24 @@
           "style": "plain",
           "template": " {{ if gt .Code 0 }}\uea76{{else}}\uf42e{{ end }} ",
           "type": "status"
+        },
+        {
+          "foreground": "green",
+          "foreground_templates": [
+            "{{ if lt .Percentage 20 }}red{{ else if lt .Percentage 50 }}yellow{{ end }}"
+          ],
+          "style": "plain",
+          "template": " {{ if eq \"Charging\" .State.String }}\udb80\udc84{{ else if eq \"Full\" .State.String }}\udb80\udc79{{ else }}\udb80\udc7e{{ end }} {{ .Percentage }}% ",
+          "type": "battery"
+        },
+        {
+          "foreground": "lightWhite",
+          "options": {
+            "time_format": "15:04"
+          },
+          "style": "plain",
+          "template": " \uf017 {{ .CurrentDate | date .Format }} ",
+          "type": "time"
         }
       ],
       "type": "prompt"
