@@ -4,7 +4,7 @@
     "actions": [],
     "copyFormatting": "none",
     "copyOnSelect": false,
-    "defaultProfile": "{82f0d254-7319-58ed-88f9-4a8668483b83}",
+    "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
     "keybindings": 
     [
         {
@@ -41,6 +41,21 @@
         },
         "list": 
         [
+            {
+                "colorScheme": "Dimidium",
+                "commandline": "pwsh.exe -NoLogo",
+                "cursorShape": "filledBox",
+                "font": 
+                {
+                    "face": "MesloLGL Nerd Font"
+                },
+                "guid": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
+                "hidden": false,
+                "name": "PowerShell",
+                "opacity": 75,
+                "source": "Windows.Terminal.PowershellCore",
+                "useAcrylic": true
+            },
             {
                 "colorScheme": "Dimidium",
                 "commandline": "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",

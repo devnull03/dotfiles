@@ -2,6 +2,16 @@ oh-my-posh init pwsh --config ~/kali.omp.json | Invoke-Expression
 Invoke-Expression (& { (zoxide init powershell | Out-String) })
 
 Set-Alias lg lazygit
+
+# pwsh 7 only: inline suggestions list + fzf (Ctrl+R history, Ctrl+T files)
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    Import-Module CompletionPredictor
+    Set-PSReadLineOption -PredictionSource HistoryAndPlugin -PredictionViewStyle ListView -ErrorAction SilentlyContinue
+    Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+    Import-Module PSFzf
+    Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
+}
+
 # Keep the chezmoi winget list in sync after package changes
 function winget {
     winget.exe @args
