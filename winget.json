@@ -1,6 +1,6 @@
 {
 	"$schema" : "https://aka.ms/winget-packages.schema.2.0.json",
-	"CreationDate" : "2026-10-20T22:31:02.341-00:00",
+	"CreationDate" : "2026-10-20T22:38:39.276-00:00",
 	"Sources" : 
 	[
 		{
@@ -227,6 +227,9 @@
 				},
 				{
 					"PackageIdentifier" : "Microsoft.Outlook"
+				},
+				{
+					"PackageIdentifier" : "Microsoft.PowerShell"
 				},
 				{
 					"PackageIdentifier" : "Microsoft.UI.Xaml.2.8"
