@@ -6,6 +6,10 @@ Set-Alias lg lazygit
 function winget {
     winget.exe @args
     if ($args[0] -in 'install', 'add', 'uninstall', 'remove', 'rm', 'upgrade', 'update') {
-        winget.exe export -o "$(chezmoi source-path)\winget.json" --accept-source-agreements | Out-Null
+        $src = chezmoi source-path
+        winget.exe export -o "$src\winget.json" --accept-source-agreements | Out-Null
+        git -C $src add winget.json
+        git -C $src diff --cached --quiet
+        if ($LASTEXITCODE) { git -C $src commit -q -m "Update winget.json"; git -C $src push -q }
     }
 }
