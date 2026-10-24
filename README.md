@@ -22,9 +22,9 @@ Run the bootstrap as your normal user. It uses sudo when needed and refuses to r
 
 - zsh and Oh My Zsh with the Debian Jovial theme, autosuggestions, fast syntax highlighting, history plugin, vi bindings, fzf and zoxide.
 - Native Linux tmux with Debian's Alt+A prefix, Catppuccin Mocha theme, pane titles and workmux dashboard binding. No psmux files are used.
-- LazyVim copied from Debian, including its lockfile. It is seeded only when ~/.config/nvim does not already exist, so updates remain writable.
-- lazygit, fastfetch, Neovim, Zed, Kitty, Bun, uv and the development tools listed in packages/repo.txt.
-- Git identity and Zed Shift+Enter binding from the shared Windows dotfiles. Kitty uses the JetBrainsMono Nerd Font from Windows Terminal.
+- LazyVim configuration and its lockfile are tracked directly from ~/.config/nvim.
+- lazygit, fastfetch, Neovim, Zed, Ghostty, Bun, uv and the development tools listed in packages/repo.txt.
+- Git identity and Zed Shift+Enter binding from the shared Windows dotfiles. Ghostty uses JetBrainsMono Nerd Font and starts zsh.
 
 The full preset also installs the optional package lists, enables the installed ASUS/Bluetooth/power services, selects zsh as the login shell and configures the Limine menu. AUR builds still show their normal review prompts.
 
@@ -40,13 +40,13 @@ Run bash bootstrap.sh --help for all flags.
 | --- | --- |
 | --apply | Install the base packages and managed dotfiles |
 | --extras | Add packages/optional-repo.txt |
-| --aur | Add Zen and supergfxctl; prefer configured repos over AUR |
+| --aur | Add Zen; prefer configured repos over AUR |
 | --system | Start installed ASUS, Bluetooth, NetworkManager and power services |
 | --boot-menu | Run limine-scan and set a ten-second menu |
 | --login-shell | Set the current user's login shell to zsh |
 | --full | Select all the optional parts above |
 
-Waybar is installed by --extras, but is not started alongside the installer's shell. Niri, Noctalia, display-manager settings, graphics drivers and GPU modes are left to the CachyOS installer. The old Hyprland/Caelestia configuration is not applied.
+Waybar is installed by --extras, but is not started alongside the installer's shell. The current Niri configuration is tracked with chezmoi. Noctalia, display-manager settings, graphics drivers and GPU modes are left to the CachyOS installer. The old Hyprland/Caelestia configuration is not applied.
 
 If TLP or tuned is already active, the service helper stops rather than enabling a competing power manager.
 
@@ -67,3 +67,22 @@ Review the resulting diff before committing. Plugin versions are pinned in sourc
 The scripts never partition disks or reboot. Check both Windows and CachyOS boot entries before calling the migration complete.
 
 Source details and deliberate changes are recorded in docs/MIGRATION.md.
+
+## Tracking local edits
+
+This checkout tracks zsh, Git, tmux/workmux, Zed key bindings, Ghostty, Niri and Neovim through chezmoi. G-Helper handles ASUS hardware controls.
+
+After editing an existing managed config in your home directory:
+
+```sh
+chezmoi re-add
+chezmoi git -- diff
+chezmoi git -- status --short
+chezmoi git -- add --all
+chezmoi git -- commit -m "Update CachyOS configuration"
+chezmoi git -- push origin cachyos
+```
+
+To start tracking another config, use `chezmoi add ~/.config/APP`, then review the diff before committing. Git uses the authenticated GitHub CLI credential helper; sign in with `gh auth login` on a new machine.
+
+To fetch changes from GitHub, first commit local edits, then run `chezmoi update`. Use `chezmoi diff` to preview differences between the checkout and your home directory. Backup files matching `*.before-*` and `*.bak` are ignored by chezmoi.

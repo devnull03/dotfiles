@@ -1,4 +1,7 @@
 # This branch is for Linux. Never deploy Linux configs on the Windows checkout.
+# Local backup files should never become managed configuration.
+**/*.before-*
+**/*.bak
 {{ if ne .chezmoi.os "linux" }}
 **
 {{ end }}

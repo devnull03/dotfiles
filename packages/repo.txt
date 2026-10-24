@@ -19,10 +19,9 @@ zsh
 zoxide
 fzf
 fastfetch
-kitty
+ghostty
 ttf-jetbrains-mono-nerd
 # Niri-compatible desktop utilities; retain the installer's Niri shell.
-thunar
 fuzzel
 cliphist
 wl-clipboard

@@ -1,6 +1,5 @@
 # Install only with --extras. Availability is checked against configured repos.
-asusctl
-rog-control-center
+# ASUS hardware controls are handled by the installed G-Helper Linux.
 power-profiles-daemon
 bluez
 bluez-utils

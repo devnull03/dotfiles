@@ -68,7 +68,8 @@ sudo pacman -Syu --needed "${packages[@]}"
 backup_dir="$HOME/.local/share/cachyos-dotfiles/backups/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$backup_dir"
 for relative in .zshrc .tmux.conf .gitconfig .config/tmux/workmux.conf \
-  .config/workmux/config.yaml .config/kitty/kitty.conf .config/zed/keymap.json \
+  .config/workmux/config.yaml .config/ghostty/config .config/zed/keymap.json \
+  .config/niri .config/nvim \
   .config/omz-custom .config/chezmoi/chezmoi.toml; do
   if [[ -e "$HOME/$relative" || -L "$HOME/$relative" ]]; then
     mkdir -p "$backup_dir/$(dirname -- "$relative")"
