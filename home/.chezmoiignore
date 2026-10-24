@@ -1,0 +1,4 @@
+# This branch is for Linux. Never deploy Linux configs on the Windows checkout.
+{{ if ne .chezmoi.os "linux" }}
+**
+{{ end }}

@@ -1,0 +1,4 @@
+# Only with --aur; repo packages are preferred when the name is available there.
+# paru/yay still prompts you to review the build files.
+zen-browser-bin
+supergfxctl

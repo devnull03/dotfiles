@@ -1,2 +1,5 @@
-test.py
-\files
+*.log
+.DS_Store
+.validation/
+*.bundle
+*.tar.gz

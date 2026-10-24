@@ -1,0 +1,8 @@
+agent: codex
+nerdfont: true
+confirm_unmerged_removal: true
+panes:
+  - command: <agent>
+    focus: true
+  - split: horizontal
+    percentage: 25

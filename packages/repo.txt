@@ -1,0 +1,30 @@
+# Shell, terminal, editors and development tools.
+base-devel
+chezmoi
+git
+curl
+wget
+vim
+neovim
+zed
+ripgrep
+fd
+lazygit
+bun
+uv
+nodejs
+npm
+tmux
+zsh
+zoxide
+fzf
+fastfetch
+kitty
+ttf-jetbrains-mono-nerd
+# Niri-compatible desktop utilities; retain the installer's Niri shell.
+thunar
+fuzzel
+cliphist
+wl-clipboard
+libnotify
+pciutils

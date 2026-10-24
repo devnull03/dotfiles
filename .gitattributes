@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.png binary
+*.gz binary
+*.bundle binary
+# Preserve the vendored Debian Jovial sources byte-for-byte.
+home/dot_config/omz-custom/** -whitespace

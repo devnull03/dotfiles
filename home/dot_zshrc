@@ -1,0 +1,50 @@
+# Ported from the live Debian WSL ~/.zshrc.
+export ZSH="$HOME/.local/share/cachyos-dotfiles/oh-my-zsh"
+export ZSH_CUSTOM="$HOME/.config/omz-custom"
+ZSH_THEME="jovial"
+plugins=(git urltools jovial rust python)
+if [[ -r "$ZSH/oh-my-zsh.sh" ]]; then
+  source "$ZSH/oh-my-zsh.sh"
+else
+  autoload -Uz compinit && compinit
+  print -u2 'Run the CachyOS dotfiles bootstrap to install Oh My Zsh.'
+fi
+
+# The same third-party plugins as Debian, installed at pinned revisions.
+for plugin_file in \
+  zsh-autosuggestions/zsh-autosuggestions.zsh \
+  fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh \
+  zsh-history-enquirer/zsh-history-enquirer.plugin.zsh; do
+  [[ -r "$HOME/.local/share/cachyos-dotfiles/plugins/$plugin_file" ]] &&
+    source "$HOME/.local/share/cachyos-dotfiles/plugins/$plugin_file"
+done
+unset plugin_file
+
+export EDITOR=nvim
+export VISUAL="$EDITOR"
+typeset -U path PATH
+path=("$HOME/.local/bin" "$HOME/.bun/bin" $path)
+export BUN_INSTALL="$HOME/.bun"
+alias vi="$EDITOR"
+alias vim="$EDITOR"
+alias zshrc='$EDITOR ~/.zshrc'
+alias reload-zsh='source ~/.zshrc'
+alias ohmyzsh='$EDITOR "$ZSH"'
+alias cls='clear && ls'
+alias wm=workmux
+
+[[ -s "$HOME/.bun/_bun" ]] && source "$HOME/.bun/_bun"
+if (( $+commands[uv] )); then
+  eval "$(uv generate-shell-completion zsh)"
+fi
+if (( $+commands[uvx] )); then
+  eval "$(uvx --generate-shell-completion zsh)"
+fi
+bindkey -v
+if (( $+commands[zoxide] )); then
+  eval "$(zoxide init zsh)"
+fi
+# Keep Debian's final Ctrl+R/history and file-navigation bindings.
+if (( $+commands[fzf] )); then
+  eval "$(fzf --zsh)"
+fi

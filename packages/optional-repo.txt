@@ -1,0 +1,9 @@
+# Install only with --extras. Availability is checked against configured repos.
+asusctl
+rog-control-center
+power-profiles-daemon
+bluez
+bluez-utils
+blueman
+waybar
+ydotool
