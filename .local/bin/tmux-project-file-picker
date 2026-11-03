@@ -1,0 +1,24 @@
+#!/bin/bash
+# Pick files from the current Git worktree and insert references in the invoking pane.
+set -u
+pane=${1:?missing target pane}
+start=$(tmux display-message -p -t "$pane" '#{pane_current_path}')
+cd -- "$start" || exit 1
+root=$(git rev-parse --show-toplevel 2>/dev/null) || root=$PWD
+cd -- "$root" || exit 1
+selection=$(mktemp "${TMPDIR:-/tmp}/tmux-file-picker.XXXXXX") || exit 1
+trap 'rm -f "$selection"' EXIT
+if [ "$root" = "$HOME" ]; then
+    fd --max-depth 1 --type d --print0
+else
+    fd --type f --hidden --exclude .git --exclude node_modules --exclude bower_components --exclude vendor --exclude target --exclude dist --exclude build --exclude .next --exclude .nuxt --exclude .output --exclude .turbo --exclude .cache --exclude .venv --exclude venv --exclude __pycache__ --exclude .pytest_cache --exclude .mypy_cache --exclude .tox --exclude .gradle --exclude .build --exclude DerivedData --exclude coverage --exclude .terraform --exclude .direnv --print0
+fi | fzf --read0 --print0 --multi --prompt='Files > ' --header='Tab: select multiple · Enter: insert · Esc: cancel' > "$selection" || exit 0
+python3 - "$selection" "$root" "$start" "$pane" <<'PY'
+import os, subprocess, sys
+selection, root, start, pane = sys.argv[1:]
+with open(selection, 'rb') as f:
+    paths = [os.fsdecode(p) for p in f.read().split(b'\0') if p]
+if paths:
+    references = ['@' + os.path.relpath(os.path.join(root, p), start) for p in paths]
+    subprocess.run(['tmux', 'send-keys', '-t', pane, '-l', '--', ' '.join(references) + ' '], check=True)
+PY

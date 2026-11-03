@@ -1,0 +1,65 @@
+#!/bin/bash
+set -euo pipefail
+
+tool=${1:-ccswap}
+# Popups provide TMUX (socket,server-pid,session-number), but no TMUX_PANE.
+source_session=${2:-\$${TMUX##*,}}
+directory=${3:-$PWD}
+case "$tool" in btop|ccswap) ;; *) exit 2 ;; esac
+
+# All project sessions share one tool instance. Reuse the oldest existing popup
+# when upgrading from the previous per-project implementation.
+target=$(tmux show-option -gqv "@${tool}_popup_session")
+if [[ -z $target ]] || ! tmux has-session -t "=$target" 2>/dev/null; then
+    target=$(tmux list-sessions -F '#{session_created} #{session_name}' |
+        sort -n | awk -v prefix="popup-${tool}" '
+            $2 == prefix || index($2, prefix "-") == 1 { print $2; exit }')
+    target=${target:-popup-$tool}
+    tmux set-option -g "@${tool}_popup_session" "$target"
+fi
+if ! tmux has-session -t "=$target" 2>/dev/null; then
+    existing_pane=
+    if [[ $tool == ccswap ]]; then
+        # Match the real process on each pane's terminal, including shell children.
+        while read -r pane tty; do
+            if ps -axo tty=,args= | awk -v tty="${tty#/dev/}" '
+                $1 == tty && /(^|\/|[[:space:]])ccswap([[:space:]]|$)/ { found=1 }
+                END { exit !found }'; then
+                existing_pane=$pane
+                break
+            fi
+        done < <(tmux list-panes -a -F '#{pane_id} #{pane_tty}')
+    fi
+
+    if [[ -n $existing_pane ]]; then
+        # Move the live terminal intact; no restart, no loss of watch state.
+        placeholder=$(tmux new-session -d -s "$target" -c "$directory" -P -F '#{pane_id}' 'sleep 86400')
+        tmux break-pane -d -s "$existing_pane" -t "$target:" -n "$tool"
+        tmux kill-pane -t "$placeholder"
+    else
+        tmux new-session -d -s "$target" -n "$tool" -c "$directory" "$tool"
+    fi
+    tmux set-option -t "$target" @tool-popup 1
+    tmux set-option -t "$target" status off
+    tmux set-option -t "$target" prefix M-a
+    tmux set-option -t "$target" destroy-unattached off
+fi
+
+# Opt this session out of workmux's global sidebar, leaving project sessions on.
+popup_id=$(tmux display-message -p -t "$target:" '#{session_id}')
+optouts=$(tmux show-option -gqv @workmux_sidebar_optout_sessions)
+case " $optouts " in
+    *" $popup_id "*) ;;
+    *) tmux set-option -g @workmux_sidebar_optout_sessions "${optouts:+$optouts }$popup_id" ;;
+esac
+tmux set-option -t "$target" @tool-popup 1
+tmux set-window-option -t "$target:" pane-border-status off
+tmux set-hook -t "$target" 'after-new-window[99]' ''
+while read -r pane role; do
+    if [[ $role == sidebar ]]; then
+        tmux kill-pane -t "$pane"
+    fi
+done < <(tmux list-panes -t "$target:" -F '#{pane_id} #{@workmux_role}')
+
+# The nested client can detach while its session and application stay alive.
+exec env -u TMUX tmux attach-session -t "=$target"

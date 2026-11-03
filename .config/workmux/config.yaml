@@ -1,0 +1,17 @@
+# Global workmux config — applies to every repo (override per-repo with .workmux.yaml)
+agent: claude
+nerdfont: true
+
+# Worktrees go in ../worktrees/<repo-name>/<branch> (relative to repo root)
+worktree_dir: ../worktrees/{project}
+
+# Every new worktree window: hpick in the middle (focused), narrower shell on the right
+# (the workmux sidebar occupies the far left)
+panes:
+  - command: hpick
+    focus: true
+  - split: horizontal
+    percentage: 35
+
+sidebar:
+  position: left
