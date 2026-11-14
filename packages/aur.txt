@@ -1,3 +1,9 @@
 # Only with --aur; repo packages are preferred when the name is available there.
 # paru/yay still prompts you to review the build files.
-zen-browser-bin
+# Zen and Zed use upstream user installs; see scripts/install-upstream-apps.sh.
+# Raycast-style launcher (Mod+Space) and Tailscale tray.
+vicinae-bin
+trayscale
+# macOS look: icon theme used by the dock and apps.
+whitesur-icon-theme
+apple_cursor

@@ -1,6 +1,9 @@
     window-rule {
-        geometry-corner-radius 20 // Set every window radius to 20
+        geometry-corner-radius 24 // Set every window radius to 24
         clip-to-geometry true
+        // Don't paint the focus ring as a solid fill behind windows;
+        // otherwise translucent windows (Zen) show gray/blue instead of the wallpaper.
+        draw-border-with-background false
     }
 
     window-rule {

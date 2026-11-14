@@ -1,0 +1,89 @@
+# Noctalia: bar + dock + OSD + lock + wallpaper. Notifications stay on swaync.
+# GUI changes (Mod+Shift+S) go to ~/.local/state/noctalia/settings.toml and override this file.
+
+[shell]
+polkit_agent = true
+font_family = "Inter"
+
+[notification]
+enable_daemon = false
+
+[theme]
+source = "builtin"
+builtin = "Catppuccin"
+mode = "dark"
+
+# ── Bar: macOS-style menu bar (full width, thin, translucent, monochrome) ──
+[bar.default]
+position = "top"
+thickness = 28
+margin_edge = 0
+margin_ends = 0
+radius = 0
+radius_top_left = 0
+radius_top_right = 0
+radius_bottom_left = 0
+radius_bottom_right = 0
+concave_edge_corners = false
+background_opacity = 0.55
+border_width = 0.0
+shadow = false
+padding = 14
+widget_spacing = 12
+font_weight = 500
+start = ["launcher", "workspaces", "active_window"]
+center = []
+end = ["tray", "tailscale", "brightness", "volume", "bluetooth", "network", "battery", "session", "clock"]
+
+[widget.launcher]
+# Tabler (the bar icon font) has no Arch logo, so use the image, tinted to the theme.
+custom_image = "/usr/share/pixmaps/archlinux-logo.svg"
+custom_image_colorize = true
+
+[widget.launcher.actions]
+left = "panel-toggle control-center home" # Arch logo opens the control center home
+
+[widget.clock]
+format = "{:%a %d %b  %H:%M}"
+font_weight = 500
+
+[widget.active_window]
+max_length = 360
+title_scroll = "none"
+font_weight = 700
+
+# Community plugin davemhammer/tailscale (enable: noctalia msg plugins enable davemhammer/tailscale).
+[widget.tailscale]
+type = "davemhammer/tailscale:status"
+show_counts = false
+
+[widget.network]
+show_label = false # icon only, no SSID
+
+# ── Dock: macOS-style, floating, auto-hides, magnifies on hover ──
+[dock]
+enabled = true
+position = "bottom"
+icon_size = 48
+item_spacing = 8
+margin_edge = 6
+radius = 18
+radius_top_left = 18
+radius_top_right = 18
+radius_bottom_left = 18
+radius_bottom_right = 18
+concave_edge_corners = false
+background_opacity = 0.55
+magnification = true
+magnification_scale = 1.6
+inactive_scale = 1.0
+inactive_opacity = 1.0
+show_dots = true
+show_instance_count = false
+auto_hide = true
+reserve_space = false
+pinned = ["zen", "org.gnome.Nautilus", "com.mitchellh.ghostty", "dev.zed.Zed", "discord", "steam"]
+
+# Push the palette to apps (writes ~/.config/ghostty/themes/noctalia and live-reloads Ghostty).
+[theme.templates]
+builtin_ids = ["ghostty", "btop", "niri"]

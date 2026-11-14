@@ -1,0 +1,42 @@
+--- a/service.luau
++++ b/service.luau
+@@ -345,13 +345,27 @@
+       -- columns: IP HOSTNAME COUNTRY CITY STATUS...
+       local ip, host, rest = line:match("^(%S+)%s+(%S+)%s+(.*)$")
+       if ip and host and ip:match("^%d+%.%d+") then
+-        local status = trim(rest)
++        -- PATCH(dvnl): show "City, Country" instead of raw Mullvad hostnames.
++        -- Columns are separated by 2+ spaces; names themselves may contain single spaces.
++        local cols = {}
++        for col in (trim(rest) .. "  "):gmatch("(.-)%s%s+") do
++          if col ~= "" then table.insert(cols, col) end
++        end
++        local country, city = cols[1] or "-", cols[2] or "-"
++        local status = trim(table.concat(cols, " ", 3))
++        local label = host:match("^([^.]+)") or host
++        if country ~= "-" and country ~= "" then
++          label = (city == "Any" or city == "-") and (country .. " (recommended)") or (city .. ", " .. country)
++        end
+         local selected = status:lower():find("selected", 1, true) ~= nil
+         local offline = status:lower():find("offline", 1, true) ~= nil
+         table.insert(list, {
+-          id = ip,
++          id = ip .. "|" .. city,
+           ip = ip,
+-          name = host:match("^([^.]+)") or host,
++          country = country,
++          city = city,
++          sortKey = (country ~= "-" and "1" or "0") .. country .. (city == "Any" and "" or ("|" .. city)),
++          name = label,
+           host = host,
+           status = status,
+           selected = selected,
+@@ -368,7 +382,7 @@
+     if a.online ~= b.online then
+       return a.online
+     end
+-    return a.name < b.name
++    return (a.sortKey or a.name) < (b.sortKey or b.name)
+   end)
+   return list
+ end

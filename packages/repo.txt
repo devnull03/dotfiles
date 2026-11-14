@@ -6,7 +6,6 @@ curl
 wget
 vim
 neovim
-zed
 ripgrep
 fd
 lazygit
@@ -27,3 +26,7 @@ cliphist
 wl-clipboard
 libnotify
 pciutils
+inter-font
+mangohud
+lib32-mangohud
+proton-cachyos-slr

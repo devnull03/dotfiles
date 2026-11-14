@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+exec "$HOME/.local/opt/zen/zen" -P "${ZEN_PROFILE:-Default (release)}" "$@"

@@ -2,14 +2,8 @@
 set -euo pipefail
 
 sudo pacman -Syu --needed ghostty
-if ! pacman -Qq zen-browser >/dev/null 2>&1 && ! pacman -Qq zen-browser-bin >/dev/null 2>&1; then
-  if pacman -Si zen-browser >/dev/null 2>&1; then
-    sudo pacman -S --needed zen-browser
-  else
-    sudo pacman -S --needed paru
-    paru -S --needed zen-browser-bin
-  fi
-fi
+script_dir=$(cd -- "$(dirname -- "$0")" && pwd)
+bash "$script_dir/install-upstream-apps.sh"
 if pacman -Qq kitty >/dev/null 2>&1; then
   sudo pacman -R kitty
 fi

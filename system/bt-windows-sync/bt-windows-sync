@@ -1,0 +1,221 @@
+#!/usr/bin/env python3
+"""Import Windows Bluetooth pairings into BlueZ (one-way: Windows -> Linux).
+
+Runs before bluetooth.service. Mounts the Windows partition read-only, exports the
+BTHPORT keys with `reged` (chntpw), and writes /var/lib/bluetooth/<adapter>/<dev>/info.
+
+Overwrite policy, so a newer Linux-side pairing is never clobbered:
+  * device unknown to Linux            -> import
+  * Windows key changed since last run -> import (you re-paired in Windows)
+  * otherwise                          -> leave Linux alone
+--force imports everything regardless.
+"""
+import argparse, configparser, glob, hashlib, json, os, re, shutil, subprocess, sys, tempfile
+
+BT_DIR = "/var/lib/bluetooth"
+STATE = "/var/lib/bt-windows-sync/state.json"
+HIVE = "Windows/System32/config/SYSTEM"
+BASE = r"\ControlSet001\Services\BTHPORT\Parameters"
+HEX12 = re.compile(r"^[0-9a-f]{12}$")
+
+
+def log(msg):
+    print(f"bt-windows-sync: {msg}", flush=True)
+
+
+def mac(h):
+    return ":".join(h[i:i + 2] for i in range(0, 12, 2)).upper()
+
+
+def decode(v):
+    if v.startswith("dword:"):
+        return int(v[6:], 16)
+    if v.startswith("hex"):
+        return bytes.fromhex(v.split(":", 1)[1].replace(",", "").strip())
+    return v.strip('"')
+
+
+def parse_reg(path, root):
+    """Return {relative key path tuple: {value name: decoded value}} below `root`."""
+    text = open(path, encoding="utf-8", errors="replace").read()
+    text = re.sub(r"\\\r?\n\s*", "", text)
+    out, cur = {}, None
+    for line in text.splitlines():
+        if line.startswith("["):
+            parts = line.strip().strip("[]").split("\\")
+            cur = tuple(p.lower() for p in parts[parts.index(root) + 1:]) if root in parts else None
+            if cur is not None:
+                out.setdefault(cur, {})
+        elif cur is not None and (m := re.match(r'"(.+?)"=(.*)', line)):
+            try:
+                out[cur][m[1]] = decode(m[2])
+            except ValueError:
+                pass
+    return out
+
+
+def find_windows(mnt, uuid):
+    devs = [f"UUID={uuid}"] if uuid else [
+        l.split()[0] for l in subprocess.run(["lsblk", "-rno", "PATH,FSTYPE"], capture_output=True, text=True).stdout.splitlines()
+        if l.endswith(" ntfs")]
+    for dev in devs:
+        if subprocess.run(["mount", "-t", "ntfs3", "-o", "ro", dev, mnt], capture_output=True).returncode != 0:
+            continue
+        if os.path.exists(os.path.join(mnt, HIVE)):
+            return dev
+        subprocess.run(["umount", mnt])
+    return None
+
+
+def export(hive, sub, out):
+    subprocess.run(["reged", "-x", hive, r"HKEY_LOCAL_MACHINE\SYSTEM", BASE + "\\" + sub, out],
+                   stdin=subprocess.DEVNULL, capture_output=True)
+    return out if os.path.exists(out) else None
+
+
+def collect(keys_reg, devs_reg):
+    keys = parse_reg(keys_reg, "Keys")
+    devs = parse_reg(devs_reg, "Devices") if devs_reg else {}
+    found = {}  # (adapter, device) -> {"classic": bytes, "le": dict, "name": str}
+    for path, vals in keys.items():
+        if len(path) == 1:
+            for name, v in vals.items():
+                if HEX12.match(name.lower()) and isinstance(v, bytes) and len(v) == 16:
+                    found.setdefault((path[0], name.lower()), {})["classic"] = v
+        elif len(path) == 2 and isinstance(vals.get("LTK"), bytes):
+            found.setdefault(path, {})["le"] = vals
+    for (_, dev), d in found.items():
+        n = devs.get((dev,), {}).get("Name")
+        if isinstance(n, bytes):
+            d["name"] = n.split(b"\0")[0].decode("utf-8", "replace")
+    return found
+
+
+def fingerprint(d):
+    h = hashlib.sha256(d.get("classic", b""))
+    h.update(d.get("le", {}).get("LTK", b""))
+    return h.hexdigest()
+
+
+def render(info_path, d):
+    cp = configparser.ConfigParser(interpolation=None, strict=False)
+    cp.optionxform = str
+    if os.path.exists(info_path):
+        cp.read(info_path)
+    if not cp.has_section("General"):
+        cp.add_section("General")
+    g = cp["General"]
+    techs = {t for t in g.get("SupportedTechnologies", "").split(";") if t}
+    if d.get("name") and "Name" not in g:
+        g["Name"] = d["name"]
+    if "classic" in d:
+        techs.add("BR/EDR")
+        cp["LinkKey"] = {"Key": d["classic"].hex().upper(), "Type": "4", "PINLength": "0"}
+    if "le" in d:
+        le = d["le"]
+        techs.add("LE")
+        g["AddressType"] = "static" if le.get("AddressType") == 1 else "public"
+        cp["LongTermKey"] = {
+            "Key": le["LTK"].hex().upper(),
+            "Authenticated": "0",
+            "EncSize": str(le.get("KeyLength", 16)),
+            "EDiv": str(le.get("EDIV", 0)),
+            "Rand": str(int.from_bytes(le.get("ERand", bytes(8)), "little")),
+        }
+        if isinstance(le.get("IRK"), bytes):
+            cp["IdentityResolvingKey"] = {"Key": le["IRK"][::-1].hex().upper()}
+    g["SupportedTechnologies"] = "".join(t + ";" for t in sorted(techs))
+    g["Trusted"] = "true"
+    g["Blocked"] = "false"
+    return cp
+
+
+def same_keys(info_path, cp):
+    if not os.path.exists(info_path):
+        return False
+    old = configparser.ConfigParser(interpolation=None, strict=False)
+    old.optionxform = str
+    old.read(info_path)
+    return all(old.get(s, "Key", fallback=None) == cp.get(s, "Key")
+               for s in ("LinkKey", "LongTermKey") if cp.has_section(s))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--force", action="store_true", help="import every Windows pairing, overwriting Linux")
+    ap.add_argument("--restart", action="store_true", help="restart bluetooth.service afterwards")
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--reg-dir", help=argparse.SUPPRESS)  # testing: use pre-exported keys.reg/devices.reg
+    ap.add_argument("--bt-dir", default=BT_DIR, help=argparse.SUPPRESS)
+    ap.add_argument("--state", default=STATE, help=argparse.SUPPRESS)
+    a = ap.parse_args()
+
+    work = tempfile.mkdtemp(prefix="bt-windows-sync.")
+    mnt = os.path.join(work, "win")
+    os.mkdir(mnt)
+    mounted = False
+    try:
+        if a.reg_dir:
+            keys_reg, devs_reg = os.path.join(a.reg_dir, "keys.reg"), os.path.join(a.reg_dir, "devices.reg")
+        else:
+            if not shutil.which("reged"):
+                log("reged not found (install chntpw); skipping")
+                return
+            dev = find_windows(mnt, os.environ.get("BT_SYNC_WIN_UUID"))
+            if not dev:
+                log("no mountable Windows partition (hibernated / Fast Startup?); skipping")
+                return
+            mounted = True
+            hive = os.path.join(mnt, HIVE)
+            keys_reg = export(hive, "Keys", os.path.join(work, "keys.reg"))
+            devs_reg = export(hive, "Devices", os.path.join(work, "devices.reg"))
+            if not keys_reg:
+                log("could not export Windows Bluetooth keys; skipping")
+                return
+
+        state = {}
+        if os.path.exists(a.state):
+            state = json.load(open(a.state))
+        changed = 0
+        for (adapter, dev), d in sorted(collect(keys_reg, devs_reg).items()):
+            adir = os.path.join(a.bt_dir, mac(adapter))
+            if not os.path.isdir(adir):
+                continue  # adapter not present on this machine
+            info = os.path.join(adir, mac(dev), "info")
+            sid, fp = f"{mac(adapter)}/{mac(dev)}", fingerprint(d)
+            cp = render(info, d)
+            label = f"{mac(dev)} ({d.get('name', '?')})"
+            if same_keys(info, cp):
+                state[sid] = fp
+                continue
+            if not a.force and os.path.exists(info):
+                if sid not in state:
+                    log(f"{label}: Linux has its own pairing; keeping it (use --force to take Windows')")
+                    state[sid] = fp
+                    continue
+                if state[sid] == fp:
+                    continue  # Windows unchanged since last import; Linux pairing is newer
+            log(f"{label}: importing Windows pairing")
+            changed += 1
+            state[sid] = fp
+            if a.dry_run:
+                continue
+            os.makedirs(os.path.dirname(info), mode=0o700, exist_ok=True)
+            tmp = info + ".tmp"
+            with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+                cp.write(f, space_around_delimiters=False)
+            os.replace(tmp, info)
+        if not a.dry_run:
+            os.makedirs(os.path.dirname(a.state), exist_ok=True)
+            json.dump(state, open(a.state, "w"), indent=1)
+        log(f"{changed} device(s) imported")
+        if changed and a.restart and not a.dry_run:
+            subprocess.run(["systemctl", "restart", "bluetooth.service"])
+    finally:
+        if mounted:
+            subprocess.run(["umount", mnt])
+        shutil.rmtree(work, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

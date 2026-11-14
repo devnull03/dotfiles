@@ -78,6 +78,7 @@ for relative in .zshrc .tmux.conf .gitconfig .config/tmux/workmux.conf \
 done
 bash "$repo_dir/scripts/install-sources.sh"
 bash "$repo_dir/scripts/install-workmux.sh"
+bash "$repo_dir/scripts/install-upstream-apps.sh"
 chezmoi --source "$repo_dir" init --apply
 if [[ ! -e "$HOME/.config/nvim" && ! -L "$HOME/.config/nvim" ]]; then
   mkdir -p "$HOME/.config"

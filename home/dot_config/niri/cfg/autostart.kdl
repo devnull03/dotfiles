@@ -2,3 +2,9 @@
 // https://github.com/YaLTeR/niri/wiki/Configuration:-Miscellaneous#spawn-sh-at-startup
 
     spawn-at-startup "noctalia"
+
+    // Noctalia is the bar + OSD, lock and wallpaper (Waybar config kept but not started).
+    // Notification daemon + center (Noctalia notifications are disabled in its config.toml).
+    spawn-at-startup "swaync"
+    // Vicinae launcher daemon (toggled with Mod+Space).
+    spawn-at-startup "vicinae" "server"

@@ -1,0 +1,12 @@
+[Unit]
+Description=Import Windows Bluetooth pairings into BlueZ
+After=local-fs.target
+Before=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/bt-windows-sync
+TimeoutSec=60
+
+[Install]
+WantedBy=bluetooth.service

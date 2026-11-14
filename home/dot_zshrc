@@ -11,7 +11,9 @@ else
 fi
 
 # The same third-party plugins as Debian, installed at pinned revisions.
+# fzf-tab must load after compinit (Oh My Zsh) and before the widget wrappers.
 for plugin_file in \
+  fzf-tab/fzf-tab.plugin.zsh \
   zsh-autosuggestions/zsh-autosuggestions.zsh \
   fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh \
   zsh-history-enquirer/zsh-history-enquirer.plugin.zsh; do
@@ -47,4 +49,36 @@ fi
 # Keep Debian's final Ctrl+R/history and file-navigation bindings.
 if (( $+commands[fzf] )); then
   eval "$(fzf --zsh)"
+fi
+
+# fzf-tab: previews for cd/zoxide completions.
+zstyle ':completion:*' menu no
+zstyle ':completion:*:descriptions' format '[%d]'
+zstyle ':fzf-tab:complete:(cd|__zoxide_z):*' fzf-preview 'eza -1 --color=always --icons $realpath'
+
+# Modern replacements, only when installed.
+if (( $+commands[eza] )); then
+  alias ls='eza --icons --group-directories-first'
+  alias ll='eza -lh --icons --git --group-directories-first'
+  alias la='eza -lah --icons --git --group-directories-first'
+  alias lt='eza --tree --level=2 --icons'
+fi
+(( $+commands[bat] )) && alias cat='bat --paging=never --style=plain'
+(( $+commands[lazygit] )) && alias lg=lazygit
+
+# yazi: `y` opens yazi and cds into the directory you quit in.
+if (( $+commands[yazi] )); then
+  function y() {
+    local tmp="$(mktemp -t yazi-cwd.XXXXXX)" cwd
+    yazi "$@" --cwd-file="$tmp"
+    IFS= read -r -d '' cwd < "$tmp"
+    [[ -n "$cwd" && "$cwd" != "$PWD" ]] && builtin cd -- "$cwd"
+    rm -f -- "$tmp"
+  }
+fi
+
+# atuin: searchable shell history on Ctrl+R (loaded last so it owns Ctrl+R);
+# Up arrow keeps normal per-session history.
+if (( $+commands[atuin] )); then
+  eval "$(atuin init zsh --disable-up-arrow)"
 fi

@@ -6,3 +6,21 @@ bluez-utils
 blueman
 waybar
 ydotool
+# Browser text-to-speech support and voices.
+speech-dispatcher
+espeak-ng
+# Apps carried over from the NixOS setup.
+steam
+tailscale
+discord
+obs-studio
+# Shell/terminal tools: history search and yazi previewers.
+atuin
+yazi
+7zip
+ffmpegthumbnailer
+poppler
+resvg
+imagemagick
+# Notifications (replaces Noctalia toasts).
+swaync

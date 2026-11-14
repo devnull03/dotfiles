@@ -40,7 +40,7 @@ Run bash bootstrap.sh --help for all flags.
 | --- | --- |
 | --apply | Install the base packages and managed dotfiles |
 | --extras | Add packages/optional-repo.txt |
-| --aur | Add Zen; prefer configured repos over AUR |
+| --aur | Install any additional packages in packages/aur.txt |
 | --system | Start installed ASUS, Bluetooth, NetworkManager and power services |
 | --boot-menu | Run limine-scan and set a ten-second menu |
 | --login-shell | Set the current user's login shell to zsh |
@@ -86,3 +86,9 @@ chezmoi git -- push origin cachyos
 To start tracking another config, use `chezmoi add ~/.config/APP`, then review the diff before committing. Git uses the authenticated GitHub CLI credential helper; sign in with `gh auth login` on a new machine.
 
 To fetch changes from GitHub, first commit local edits, then run `chezmoi update`. Use `chezmoi diff` to preview differences between the checkout and your home directory. Backup files matching `*.before-*` and `*.bak` are ignored by chezmoi.
+
+## Self-updating Zen and Zed
+
+`scripts/install-upstream-apps.sh` installs official upstream builds under `~/.local/opt/zen` and `~/.local/zed.app`. The bootstrap uses these rather than pacman packages so built-in automatic updates remain available. Launch Zen with `zen-browser` and Zed with `zed`; user desktop entries take precedence over system entries. Quit old instances before opening the replacements.
+
+The Zen launcher selects the existing `Default (release)` profile. Set `ZEN_PROFILE` to select a different named profile. Zed settings explicitly enable `auto_update`. After migrating, remove old packages with `sudo pacman -R zen-browser-bin zed` if still installed.

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Zen Browser
+Comment=Zen Browser with upstream automatic updates
+Exec={{ .chezmoi.homeDir }}/.local/bin/zen-browser %u
+Icon={{ .chezmoi.homeDir }}/.local/opt/zen/browser/chrome/icons/default/default128.png
+Type=Application
+Categories=Network;WebBrowser;
+MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=zen
+StartupNotify=true
+Terminal=false
