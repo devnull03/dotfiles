@@ -1,9 +1,13 @@
 // ────────────── Output Configuration ──────────────
 // `niri msg outputs` lists names/modes. niri hot-reloads this file on save.
 // https://github.com/YaLTeR/niri/wiki/Configuration:-Outputs
-// eDP-1 (laptop) is left on niri's auto settings (120 Hz, scale 1.5).
+// eDP-1 (laptop): auto mode/scale (120 Hz, 1.5), VRR on so the panel drops refresh when idle.
 
 output "DP-1" {
     mode "2560x1440@119.876"
     scale 1
+}
+
+output "eDP-1" {
+    variable-refresh-rate
 }

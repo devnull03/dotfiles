@@ -30,3 +30,4 @@ inter-font
 mangohud
 lib32-mangohud
 proton-cachyos-slr
+mpvpaper

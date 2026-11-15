@@ -8,3 +8,5 @@
     spawn-at-startup "swaync"
     // Vicinae launcher daemon (toggled with Mod+Space).
     spawn-at-startup "vicinae" "server"
+    // Video wallpaper over Noctalia's static one (skips itself on battery).
+    spawn-sh-at-startup "sleep 2 && animated-wallpaper"
