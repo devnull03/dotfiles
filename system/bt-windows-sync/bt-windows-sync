@@ -8,7 +8,7 @@ Overwrite policy, so a newer Linux-side pairing is never clobbered:
   * device unknown to Linux            -> import
   * Windows key changed since last run -> import (you re-paired in Windows)
   * otherwise                          -> leave Linux alone
---force imports everything regardless.
+--force imports everything regardless; --device MAC forces just that device.
 """
 import argparse, configparser, glob, hashlib, json, os, re, shutil, subprocess, sys, tempfile
 
@@ -143,12 +143,15 @@ def same_keys(info_path, cp):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true", help="import every Windows pairing, overwriting Linux")
+    ap.add_argument("--device", action="append", default=[], metavar="MAC",
+                    help="only consider this device, importing it even over a Linux pairing (repeatable)")
     ap.add_argument("--restart", action="store_true", help="restart bluetooth.service afterwards")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--reg-dir", help=argparse.SUPPRESS)  # testing: use pre-exported keys.reg/devices.reg
     ap.add_argument("--bt-dir", default=BT_DIR, help=argparse.SUPPRESS)
     ap.add_argument("--state", default=STATE, help=argparse.SUPPRESS)
     a = ap.parse_args()
+    only = {m.upper() for m in a.device}
 
     work = tempfile.mkdtemp(prefix="bt-windows-sync.")
     mnt = os.path.join(work, "win")
@@ -177,7 +180,10 @@ def main():
         if os.path.exists(a.state):
             state = json.load(open(a.state))
         changed = 0
-        for (adapter, dev), d in sorted(collect(keys_reg, devs_reg).items()):
+        found = collect(keys_reg, devs_reg)
+        for (adapter, dev), d in sorted(found.items()):
+            if only and mac(dev) not in only:
+                continue
             adir = os.path.join(a.bt_dir, mac(adapter))
             if not os.path.isdir(adir):
                 continue  # adapter not present on this machine
@@ -188,7 +194,7 @@ def main():
             if same_keys(info, cp):
                 state[sid] = fp
                 continue
-            if not a.force and os.path.exists(info):
+            if not (a.force or only) and os.path.exists(info):
                 if sid not in state:
                     log(f"{label}: Linux has its own pairing; keeping it (use --force to take Windows')")
                     state[sid] = fp
@@ -208,6 +214,8 @@ def main():
         if not a.dry_run:
             os.makedirs(os.path.dirname(a.state), exist_ok=True)
             json.dump(state, open(a.state, "w"), indent=1)
+        for m in sorted(only - {mac(d) for _, d in found}):
+            log(f"{m}: no pairing for this device in Windows")
         log(f"{changed} device(s) imported")
         if changed and a.restart and not a.dry_run:
             subprocess.run(["systemctl", "restart", "bluetooth.service"])

@@ -1,0 +1,299 @@
+#!/usr/bin/env bash
+# app-install: install a prebuilt app from a tarball/zip, without root.
+#
+# Unpacks into ~/.local/<name>.app and hooks it into the session:
+#   - executables      -> symlinks in ~/.local/bin
+#   - *.desktop        -> ~/.local/share/applications (Exec rewritten to absolute paths)
+#   - icons            -> ~/.local/share/icons/hicolor
+#   - mime-info xml    -> ~/.local/share/mime/packages
+#   - man pages        -> symlinks in ~/.local/share/man
+# Everything created outside the app dir is recorded in a manifest so that
+# --remove (and re-installing a newer archive) cleans up exactly what was added.
+#
+# Only for apps that are not in the repos or the AUR; prefer pacman/paru.
+set -euo pipefail
+shopt -s nullglob dotglob
+
+PREFIX="$HOME/.local"
+BIN="$PREFIX/bin"
+SHARE="${XDG_DATA_HOME:-$HOME/.local/share}"
+MANIFESTS="$SHARE/app-install"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  app-install [options] ARCHIVE     install or upgrade from a .tar.* / .zip
+  app-install -r, --remove NAME     uninstall an app installed by this script
+  app-install -l, --list            list apps installed by this script
+
+Options:
+  -n, --name NAME    app name (default: guessed from the archive filename)
+  -b, --bin PATH     executable to put on PATH, relative to the archive root
+                     (repeatable; default: everything in bin/, else ./NAME)
+  -f, --force        overwrite files this script did not create
+  -h, --help         show this help
+EOF
+}
+
+die()  { printf 'app-install: %s\n' "$*" >&2; exit 1; }
+warn() { printf '  ! %s\n' "$*" >&2; }
+info() { printf '  %s\n' "$*"; }
+
+NAME="" FORCE=0 MODE=install ARCHIVE="" MANIFEST="" APPDIR="" STAGE=""
+BIN_OVERRIDE=()
+
+guess_name() {
+  local b
+  b=$(basename -- "$1")
+  b=${b,,}
+  b=$(sed -E 's/\.(tar\.(gz|xz|zst|bz2|lz4)|tgz|txz|tbz2|tar|zip)$//' <<<"$b")
+  sed -E 's/[-_. ](v?[0-9]|linux|x86_64|x86-64|amd64|x64|gnu|musl|unknown).*$//' <<<"$b"
+}
+
+check_name() {
+  [[ $1 =~ ^[a-z0-9][a-z0-9._+-]*$ ]] ||
+    die "'$1' is not a usable app name; pass one with --name"
+}
+
+record() { printf '%s\n' "$1" >>"$MANIFEST"; }
+
+# Delete everything a previous install created outside the app dir.
+unlink_manifest() {
+  local path
+  [[ -f $MANIFEST ]] || return 0
+  while IFS= read -r path; do
+    case $path in
+      "$PREFIX"/*|"$SHARE"/*) rm -f -- "$path" ;;
+    esac
+  done <"$MANIFEST"
+  rm -f -- "$MANIFEST"
+}
+
+refresh_dbs() {
+  if command -v update-desktop-database >/dev/null && [[ -d $SHARE/applications ]]; then
+    update-desktop-database -q "$SHARE/applications" || true
+  fi
+  if command -v update-mime-database >/dev/null && [[ -d $SHARE/mime/packages ]]; then
+    update-mime-database "$SHARE/mime" >/dev/null 2>&1 || true
+  fi
+}
+
+# True if DST is free, or is something we may replace.
+can_place() {
+  local dst=$1
+  [[ -e $dst || -L $dst ]] || return 0
+  (( FORCE )) && return 0
+  [[ -L $dst && $(readlink -- "$dst") == "$APPDIR"/* ]] && return 0
+  warn "skipped $dst (already exists; use --force to replace)"
+  return 1
+}
+
+place_link() {
+  local src=$1 dst=$2
+  can_place "$dst" || return 0
+  mkdir -p -- "$(dirname -- "$dst")"
+  ln -sfn -- "$src" "$dst"
+  record "$dst"
+}
+
+place_copy() {
+  local src=$1 dst=$2
+  can_place "$dst" || return 0
+  mkdir -p -- "$(dirname -- "$dst")"
+  rm -f -- "$dst"
+  install -m644 -- "$src" "$dst"
+  record "$dst"
+}
+
+# Map a bare command from a .desktop Exec line to an absolute path in the app.
+resolve_cmd() {
+  local cmd=$1 cand
+  [[ $cmd == /* || -z $cmd ]] && return 1
+  for cand in "$APPDIR/bin/$cmd" "$APPDIR/$cmd"; do
+    if [[ -f $cand && -x $cand ]]; then
+      if [[ $cand == *' '* ]]; then printf '"%s"' "$cand"; else printf '%s' "$cand"; fi
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Pick the hicolor size directory for an icon file.
+icon_size_dir() {
+  local f=$1 dims max s best=16
+  if [[ $f =~ /(scalable|[0-9]+x[0-9]+)/ ]]; then printf '%s' "${BASH_REMATCH[1]}"; return; fi
+  if [[ $f == *.svg ]]; then printf 'scalable'; return; fi
+  dims=$(file -b -- "$f")
+  if [[ $dims =~ ([0-9]+)\ x\ ([0-9]+) ]]; then
+    max=${BASH_REMATCH[1]}
+    (( BASH_REMATCH[2] > max )) && max=${BASH_REMATCH[2]}
+    for s in 16 24 32 48 64 128 256 512; do (( s <= max )) && best=$s; done
+    printf '%sx%s' "$best" "$best"
+  else
+    printf '512x512'
+  fi
+}
+
+install_icon() {
+  local icon=$1 f ext
+  [[ -n $icon && $icon != */* ]] || return 0
+  while IFS= read -r -d '' f; do
+    ext=${f##*.}
+    place_copy "$f" "$SHARE/icons/hicolor/$(icon_size_dir "$f")/apps/$icon.$ext"
+  done < <(find "$APPDIR" -maxdepth 7 -type f \( -name "$icon.png" -o -name "$icon.svg" \) -print0)
+}
+
+install_desktop() {
+  local src=$1 dst line key val cmd resolved icon=""
+  dst="$SHARE/applications/$(basename -- "$src")"
+  can_place "$dst" || return 0
+  mkdir -p -- "$SHARE/applications"
+  rm -f -- "$dst"
+  while IFS= read -r line || [[ -n $line ]]; do
+    case $line in
+      Exec=*|TryExec=*)
+        key=${line%%=*} val=${line#*=}
+        cmd=${val%% *}
+        if resolved=$(resolve_cmd "$cmd"); then line="$key=$resolved${val#"$cmd"}"; fi
+        ;;
+      Icon=*) [[ -n $icon ]] || icon=${line#Icon=} ;;
+    esac
+    printf '%s\n' "$line"
+  done <"$src" >"$dst"
+  record "$dst"
+  info "launcher  $(basename -- "$dst")"
+  install_icon "$icon"
+}
+
+cmd_install() {
+  local archive root entries f rel linked=0
+  local -A seen=()
+
+  [[ -f $ARCHIVE ]] || die "no such file: $ARCHIVE"
+  archive=$(realpath -- "$ARCHIVE")
+  [[ -n $NAME ]] || NAME=$(guess_name "$archive")
+  check_name "$NAME"
+  APPDIR="$PREFIX/$NAME.app"
+  MANIFEST="$MANIFESTS/$NAME.manifest"
+
+  if [[ -e $APPDIR && ! -f $MANIFEST ]] && (( ! FORCE )); then
+    die "$APPDIR exists but was not installed by app-install; use --force to replace it"
+  fi
+
+  mkdir -p -- "$PREFIX" "$BIN" "$MANIFESTS"
+  STAGE=$(mktemp -d "$PREFIX/.$NAME.app.XXXXXX")
+  trap 'rm -rf -- "$STAGE"' EXIT
+
+  echo "Installing $NAME from $(basename -- "$archive")"
+  bsdtar -xf "$archive" -C "$STAGE" || die "could not extract $archive"
+
+  # Archives usually wrap everything in one top-level directory; drop it.
+  entries=("$STAGE"/*)
+  (( ${#entries[@]} )) || die "archive is empty"
+  root=$STAGE
+  if (( ${#entries[@]} == 1 )) && [[ -d ${entries[0]} && ! -L ${entries[0]} ]]; then
+    root=${entries[0]}
+  fi
+
+  unlink_manifest
+  rm -rf -- "$APPDIR"
+  mv -- "$root" "$APPDIR"
+  chmod 755 -- "$APPDIR"
+  : >"$MANIFEST"
+  info "files     $APPDIR"
+
+  # Executables on PATH.
+  local bins=()
+  if (( ${#BIN_OVERRIDE[@]} )); then
+    for rel in "${BIN_OVERRIDE[@]}"; do
+      [[ -f $APPDIR/$rel && -x $APPDIR/$rel ]] || die "--bin $rel: not an executable in the archive"
+      bins+=("$APPDIR/$rel")
+    done
+  elif [[ -d $APPDIR/bin ]]; then
+    for f in "$APPDIR"/bin/*; do [[ -f $f && -x $f ]] && bins+=("$f"); done
+  elif [[ -f $APPDIR/$NAME && -x $APPDIR/$NAME ]]; then
+    bins+=("$APPDIR/$NAME")
+  else
+    for f in "$APPDIR"/*; do [[ -f $f && -x $f ]] && bins+=("$f"); done
+    if (( ${#bins[@]} > 1 )); then
+      warn "several executables at the archive root; pick with --bin:"
+      for f in "${bins[@]}"; do warn "    $(basename -- "$f")"; done
+      bins=()
+    fi
+  fi
+  for f in "${bins[@]}"; do
+    place_link "$f" "$BIN/$(basename -- "$f")"
+    info "command   $(basename -- "$f")"
+    linked=1
+  done
+  (( linked )) || warn "nothing was put on PATH"
+
+  # Launcher entries (and their icons).
+  while IFS= read -r -d '' f; do
+    [[ -n ${seen[$(basename -- "$f")]:-} ]] && continue
+    seen[$(basename -- "$f")]=1
+    install_desktop "$f"
+  done < <(find "$APPDIR" -maxdepth 4 -type f -name '*.desktop' -print0 | sort -z)
+
+  # File-type definitions.
+  while IFS= read -r -d '' f; do
+    grep -q '<mime-info' -- "$f" || continue
+    place_copy "$f" "$SHARE/mime/packages/$(basename -- "$f")"
+    info "filetype  $(basename -- "$f")"
+  done < <(find "$APPDIR" -maxdepth 5 -type f -name '*.xml' -print0 | sort -z)
+
+  # Man pages.
+  local nman=0
+  for f in "$APPDIR"/share/man/man[0-9]*/* "$APPDIR"/man/man[0-9]*/*; do
+    [[ -f $f ]] || continue
+    place_link "$f" "$SHARE/man/$(basename -- "$(dirname -- "$f")")/$(basename -- "$f")"
+    nman=$((nman + 1))
+  done
+  (( nman )) && info "man pages $nman"
+
+  refresh_dbs
+  case ":$PATH:" in
+    *":$BIN:"*) ;;
+    *) warn "$BIN is not on your PATH" ;;
+  esac
+  echo "Done. Uninstall with: app-install --remove $NAME"
+}
+
+cmd_remove() {
+  check_name "$NAME"
+  APPDIR="$PREFIX/$NAME.app"
+  MANIFEST="$MANIFESTS/$NAME.manifest"
+  [[ -f $MANIFEST ]] || die "$NAME was not installed by app-install"
+  unlink_manifest
+  rm -rf -- "$APPDIR"
+  refresh_dbs
+  echo "Removed $NAME"
+}
+
+cmd_list() {
+  local m n
+  for m in "$MANIFESTS"/*.manifest; do
+    n=$(basename -- "$m" .manifest)
+    printf '%-20s %s\n' "$n" "$PREFIX/$n.app"
+  done
+}
+
+while (( $# )); do
+  case $1 in
+    -n|--name)   [[ $# -ge 2 ]] || die "$1 needs a value"; NAME=$2; shift 2 ;;
+    -b|--bin)    [[ $# -ge 2 ]] || die "$1 needs a value"; BIN_OVERRIDE+=("$2"); shift 2 ;;
+    -r|--remove) [[ $# -ge 2 ]] || die "$1 needs a name"; MODE=remove; NAME=$2; shift 2 ;;
+    -l|--list)   MODE=list; shift ;;
+    -f|--force)  FORCE=1; shift ;;
+    -h|--help)   usage; exit 0 ;;
+    --)          shift; [[ $# -eq 0 ]] || ARCHIVE=$1; break ;;
+    -*)          die "unknown option: $1 (see --help)" ;;
+    *)           [[ -z $ARCHIVE ]] || die "only one archive at a time"; ARCHIVE=$1; shift ;;
+  esac
+done
+
+case $MODE in
+  list)    cmd_list ;;
+  remove)  cmd_remove ;;
+  install) [[ -n $ARCHIVE ]] || { usage >&2; exit 1; }; cmd_install ;;
+esac
