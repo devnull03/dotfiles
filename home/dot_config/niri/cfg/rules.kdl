@@ -1,5 +1,5 @@
     window-rule {
-        geometry-corner-radius 16 // Set every window radius to 24
+        geometry-corner-radius 12
         clip-to-geometry true
         // Don't paint the focus ring as a solid fill behind windows;
         // otherwise translucent windows (Zen) show gray/blue instead of the wallpaper.
@@ -7,9 +7,12 @@
     }
 
     window-rule {
+        // xray: blur only the wallpaper (cheap, computed once and shared).
+        // xray false (blur whatever is behind) is experimental in niri 26.04 and
+        // vanished on the laptop panel, which is driven by the other GPU.
         background-effect {
           blur true
-          xray false
+          xray true
         }
     }
 
@@ -36,13 +39,25 @@
 
     layer-rule {
         match namespace="^noctalia-wallpaper"
+        match namespace="^mpvpaper$"
         place-within-backdrop true
     }
 
+    // Bar sits in its own exclusive zone (only wallpaper behind it), so xray is
+    // visually identical and keeps working on the laptop panel when niri renders
+    // on the NVIDIA GPU (non-xray blur vanishes there).
     layer-rule {
-        match namespace="^noctalia-(bar-[^\"]+|notification|dock|panel|attached-panel|osd)$"
+        match namespace="^noctalia-bar-"
+        background-effect {
+          xray true
+        }
+    }
+
+    // These float over windows: xray would punch through to the wallpaper and
+    // hide whatever is underneath, so keep real (non-xray) blur.
+    layer-rule {
+        match namespace="^noctalia-(notification|dock|panel|attached-panel|osd)$"
         background-effect {
           xray false
-          // blur false
         }
     }
