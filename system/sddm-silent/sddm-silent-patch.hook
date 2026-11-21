@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = sddm-silent-theme
+Target = sddm-silent-theme-git
+
+[Action]
+Description = Limiting SilentSDDM to the primary screen...
+When = PostTransaction
+Exec = /usr/local/lib/sddm-wallpaper/patch-theme

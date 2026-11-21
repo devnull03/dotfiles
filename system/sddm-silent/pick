@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Points SilentSDDM at a random wallpaper from the pool built by sync.
+# Runs from SDDM's Xsetup, so each greeter start (boot and after logout) gets a new one.
+set -euo pipefail
+
+THEME=${SDDM_SILENT_THEME:-/usr/share/sddm/themes/silent}
+POOL=$THEME/backgrounds/pool
+# SDDM reads <ConfigFile>.user on top of the theme config, and pacman doesn't own it.
+conf=$(sed -n 's/^ConfigFile=//p' "$THEME/metadata.desktop" | head -1)
+USER_CONF=$THEME/${conf:-configs/default.conf}.user
+
+[[ -s $POOL/index ]] || exit 0
+mapfile -t walls < "$POOL/index"
+last=$(cat "$POOL/last" 2>/dev/null || true)
+pick=${walls[RANDOM % ${#walls[@]}]}
+if (( ${#walls[@]} > 1 )); then
+  while [[ $pick == "$last" ]]; do pick=${walls[RANDOM % ${#walls[@]}]}; done
+fi
+printf '%s\n' "$pick" > "$POOL/last"
+
+BLUR_LOCKSCREEN=0
+# shellcheck source=/dev/null
+[[ -r /etc/sddm-wallpaper.conf ]] && . /etc/sddm-wallpaper.conf
+
+case $pick in
+  *.jpg|*.png|*.webp) blurred="${pick%.*}.blur.jpg" ;;
+  *) blurred="${pick%.*}.blur.mp4" ;;
+esac
+[[ -s $POOL/$blurred ]] || blurred=$pick
+lock=$pick
+(( BLUR_LOCKSCREEN )) && lock=$blurred
+
+# One placeholder serves both screens; the frosted frame works for both.
+placeholder=""
+case $blurred in
+  *.jpg|*.png|*.webp) ;;
+  *) [[ -s $POOL/${blurred%.*}.placeholder.jpg ]] && placeholder="pool/${blurred%.*}.placeholder.jpg" ;;
+esac
+
+cat > "$USER_CONF" <<EOF
+; Written by /usr/local/lib/sddm-wallpaper/pick on every greeter start.
+[General]
+animated-background-placeholder = "$placeholder"
+
+[LockScreen]
+background = "pool/$lock"
+blur = 0
+brightness = 0.0
+
+[LoginScreen]
+background = "pool/$blurred"
+blur = 0
+brightness = -0.1
+EOF
+chmod 644 "$USER_CONF"

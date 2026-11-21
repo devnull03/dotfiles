@@ -1,0 +1,4 @@
+#!/bin/sh
+# SDDM DisplayCommand: choose a random login wallpaper, then run the stock Xsetup.
+/usr/local/lib/sddm-wallpaper/pick || true
+exec /usr/share/sddm/scripts/Xsetup

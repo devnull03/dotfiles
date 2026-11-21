@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Builds SilentSDDM's wallpaper pool from the folders in /etc/sddm-wallpaper.conf.
+# Files get hashed names: the theme loads them as URLs, so names with "#" or "?" break.
+# GIFs are converted to mp4, and every video gets a first-frame placeholder image.
+set -euo pipefail
+shopt -s nullglob
+
+CONF=${SDDM_WALLPAPER_CONF:-/etc/sddm-wallpaper.conf}
+POOL=${SDDM_WALLPAPER_POOL:-/usr/share/sddm/themes/silent/backgrounds/pool}
+BLUR_SIGMA=12
+# shellcheck source=/dev/null
+. "$CONF"
+BLUR_FILTER="scale=960:-2,gblur=sigma=${BLUR_SIGMA}:steps=3,eq=saturation=1.15"
+mkdir -p "$POOL"
+
+# Pick one file per wallpaper: "foo.mp4", "foo.gif" and "foo(1).mp4" are the same one.
+# Preference: real video > image > gif.
+declare -A best rank
+while IFS= read -r -d '' f; do
+  name=${f##*/}; ext=${name##*.}; ext=${ext,,}; stem=${name%.*}
+  stem=$(sed -E 's/ ?\([0-9]+\)$//' <<<"$stem")
+  case $ext in
+    mp4|webm|mkv|mov|m4v|avi) r=3 ;;
+    jpg|jpeg|png|webp) r=2 ;;
+    gif) r=1 ;;
+    *) continue ;;
+  esac
+  key="${f%/*}/$stem"
+  if (( r > ${rank[$key]:-0} )); then rank[$key]=$r; best[$key]=$f; fi
+done < <(for s in "${SOURCES[@]}"; do [[ -d $s ]] && find "$s" -type f -print0; done)
+
+declare -A keep
+: > "$POOL/index.new"
+for key in "${!best[@]}"; do
+  f=${best[$key]}
+  ext=${f##*.}; ext=${ext,,}
+  id=$(printf '%s' "$f" | sha1sum | cut -c1-12)
+  case $ext in
+    gif) out="$id.mp4" ;;
+    jpeg) out="$id.jpg" ;;
+    *) out="$id.$ext" ;;
+  esac
+  if [[ ! -s $POOL/$out || $f -nt $POOL/$out ]]; then
+    if [[ $ext == gif ]]; then
+      ffmpeg -loglevel error -y -i "$f" -movflags +faststart -pix_fmt yuv420p \
+        -vf 'scale=trunc(iw/2)*2:trunc(ih/2)*2' -c:v libx264 -crf 20 -an "$POOL/.$out.tmp.mp4" \
+        && mv "$POOL/.$out.tmp.mp4" "$POOL/$out" || { echo "convert failed: $f" >&2; continue; }
+    else
+      cp -f "$f" "$POOL/$out"
+    fi
+  fi
+  keep[$out]=1
+  # Frosted copy for the login screen: real Gaussian blur (the theme's own blur is blotchy).
+  # Downscaling first makes it cheap; the blur hides the upscale.
+  case $out in
+    *.jpg|*.png|*.webp) blur="$id.blur.jpg" ;;
+    *) blur="$id.blur.mp4" ;;
+  esac
+  if [[ ! -s $POOL/$blur || $POOL/$out -nt $POOL/$blur ]]; then
+    case $blur in
+      *.jpg) ffmpeg -loglevel error -y -i "$POOL/$out" -vf "$BLUR_FILTER" -frames:v 1 -q:v 2 "$POOL/$blur" ;;
+      *) ffmpeg -loglevel error -y -i "$POOL/$out" -vf "$BLUR_FILTER" -c:v libx264 -crf 22 -pix_fmt yuv420p \
+           -movflags +faststart -an "$POOL/.$blur.tmp.mp4" && mv "$POOL/.$blur.tmp.mp4" "$POOL/$blur" ;;
+    esac || echo "blur failed: $f" >&2
+  fi
+  keep[$blur]=1
+  case $out in
+    *.jpg|*.png|*.webp) ;;
+    *)
+      for v in "$out" "$blur"; do
+        ph="${v%.*}.placeholder.jpg"
+        if [[ ! -s $POOL/$ph || $POOL/$v -nt $POOL/$ph ]]; then
+          ffmpeg -loglevel error -y -i "$POOL/$v" -frames:v 1 -q:v 3 "$POOL/$ph" || true
+        fi
+        keep[$ph]=1
+      done ;;
+  esac
+  printf '%s\n' "$out" >> "$POOL/index.new"
+done
+
+# Drop pool files whose source is gone.
+for p in "$POOL"/*; do
+  b=${p##*/}
+  [[ $b == index || $b == index.new || $b == last || -n ${keep[$b]:-} ]] || rm -f "$p"
+done
+mv "$POOL/index.new" "$POOL/index"
+chmod -R a+rX "$POOL"
+echo "sddm-wallpaper: $(wc -l < "$POOL/index") wallpapers in $POOL"

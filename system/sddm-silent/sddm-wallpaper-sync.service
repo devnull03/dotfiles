@@ -1,0 +1,11 @@
+[Unit]
+Description=Rebuild SilentSDDM wallpaper pool from user wallpaper folders
+After=local-fs.target
+
+[Service]
+Type=oneshot
+Nice=10
+ExecStart=/usr/local/lib/sddm-wallpaper/sync
+
+[Install]
+WantedBy=multi-user.target

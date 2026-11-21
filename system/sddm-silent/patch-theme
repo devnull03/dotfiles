@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Shows SilentSDDM only on the primary screen; other screens get a black cover.
+# The theme is package-owned, so a pacman hook reruns this after updates.
+set -euo pipefail
+MAIN=${SDDM_SILENT_THEME:-/usr/share/sddm/themes/silent}/Main.qml
+if ! grep -q 'sddm-wallpaper: swap video' "$MAIN"; then
+  # The theme only loads a video once, so the login screen kept the lock screen's
+  # video. Reload it whenever the lock/login background changes.
+  sed -i '0,/^\( *\)property string tsource: .*$/s//&\n\1onTsourceChanged: updateVideo() \/\/ sddm-wallpaper: swap video/' "$MAIN"
+  grep -q 'sddm-wallpaper: swap video' "$MAIN" || { echo "patch-theme: tsource anchor not found" >&2; exit 1; }
+fi
+grep -q 'sddm-wallpaper: primary only' "$MAIN" && exit 0
+# SDDM sets primaryScreen in each screen's view.
+cover='    Rectangle { \/\/ sddm-wallpaper: primary only\n        anchors.fill: parent; z: 1000; color: "black"\n        visible: typeof primaryScreen !== "undefined" \&\& !primaryScreen\n        MouseArea { anchors.fill: parent; hoverEnabled: true }\n    }'
+sed -i "0,/^    id: root\$/s//    id: root\n$cover/" "$MAIN"
+grep -q 'sddm-wallpaper: primary only' "$MAIN" || { echo "patch-theme: anchor not found in $MAIN" >&2; exit 1; }
