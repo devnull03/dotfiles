@@ -2,12 +2,18 @@
 # Runs before niri starts (systemd drop-in niri.service.d/gpu.conf).
 # If any monitor is plugged into the NVIDIA dGPU's port, render on the dGPU so that
 # monitor gets frames directly instead of a cross-GPU copy (smoother). Otherwise
-# leave niri on the AMD iGPU so the dGPU can sleep. Re-login after (un)plugging.
+# render on the AMD iGPU and make niri ignore the dGPU entirely: just holding it open
+# keeps it out of runtime D3 (~10 W on battery). Re-login after (un)plugging.
 set -euo pipefail
 out="${XDG_CONFIG_HOME:-$HOME/.config}/niri/cfg/gpu.kdl"
 nv_pci="pci-0000:01:00.0"
-card="$(readlink -f "/dev/dri/by-path/$nv_pci-card" 2>/dev/null || true)"
-render="$(readlink -f "/dev/dri/by-path/$nv_pci-render" 2>/dev/null || true)"
+# The nvidia module sometimes loads ~10 s after niri starts; without its nodes we
+# can't ignore them and niri grabs the dGPU when it appears, so wait for them.
+if [ -e /sys/bus/pci/devices/0000:01:00.0 ]; then
+    udevadm wait --timeout=20 "/dev/dri/by-path/$nv_pci-card" "/dev/dri/by-path/$nv_pci-render" 2>/dev/null || true
+fi
+card="$(readlink -e "/dev/dri/by-path/$nv_pci-card" 2>/dev/null || true)"
+render="$(readlink -e "/dev/dri/by-path/$nv_pci-render" 2>/dev/null || true)"
 
 connected=false
 if [ -n "$card" ] && [ -n "$render" ]; then
@@ -21,7 +27,10 @@ fi
     if $connected; then
         printf 'debug {\n    render-drm-device "%s"\n}\n' "$render"
     else
-        echo "// No monitor on the NVIDIA GPU: rendering on the AMD iGPU."
+        echo "// No monitor on the NVIDIA GPU: render on the AMD iGPU, leave the dGPU alone so it sleeps."
+        if [ -n "$card" ] && [ -n "$render" ]; then
+            printf 'debug {\n    ignore-drm-device "%s"\n    ignore-drm-device "%s"\n}\n' "$card" "$render"
+        fi
     fi
 } >"$out.tmp"
 mv "$out.tmp" "$out"

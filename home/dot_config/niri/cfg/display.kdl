@@ -3,11 +3,26 @@
 // https://github.com/YaLTeR/niri/wiki/Configuration:-Outputs
 // eDP-1 (laptop): auto mode/scale (120 Hz, 1.5), VRR on so the panel drops refresh when idle.
 
-output "DP-1" {
-    mode "2560x1440@119.876"
+// The laptop has one fixed position, so every external monitor is placed relative to it.
+// Edges must overlap or the cursor can't cross between screens.
+
+// Home: Pixio to the left of the laptop, tops aligned (x = 213 - 2560).
+output "Pixio USA Pixio PX278 0x00000001" {
+    mode "2560x1440@143.999"
     scale 1
+    position x=-2347 y=1200
+}
+
+// Desk: Dell on top at scale 0.9 (logical 2134x1200), laptop centered underneath.
+// If you change the Dell's scale, move eDP-1 too: y = Dell logical height, or niri
+// sees an overlap and drops the laptop to the right.
+output "Dell Inc. DELL P2425H DF5PH94" {
+    mode "1920x1080@60.000"
+    scale 0.9
+    position x=0 y=0
 }
 
 output "eDP-1" {
     variable-refresh-rate
+    position x=213 y=1200
 }
