@@ -1,9 +1,14 @@
+
+apple_cursor
+# Finder-style file manager used by the Niri shortcut and Noctalia dock.
+luciole-git
+# macOS look: icon theme used by the dock and apps.
 # Only with --aur; repo packages are preferred when the name is available there.
 # paru/yay still prompts you to review the build files.
-# Zen and Zed use upstream user installs; see scripts/install-upstream-apps.sh.
 # Raycast-style launcher (Mod+Space) and Tailscale tray.
-vicinae-bin
+supergfxctl
 trayscale
-# macOS look: icon theme used by the dock and apps.
+vicinae-bin
 whitesur-icon-theme
-apple_cursor
+zoom
+# Zen and Zed use upstream user installs; see scripts/install-upstream-apps.sh.

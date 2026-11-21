@@ -31,3 +31,19 @@ mangohud
 lib32-mangohud
 proton-cachyos-slr
 mpvpaper
+fcitx5
+fcitx5-gtk
+fcitx5-qt
+fcitx5-configtool
+fcitx5-mozc
+kdeconnect
+
+# Luciole previews, archive support, Trash, and open-in-terminal.
+glycin
+ffmpeg
+ffmpegthumbnailer
+poppler
+7zip
+libarchive
+gvfs
+xdg-terminal-exec

@@ -3,6 +3,8 @@
 
     environment {
         ELECTRON_OZONE_PLATFORM_HINT "auto"
+        // GTK4's default Vulkan renderer opens every GPU, keeping the NVIDIA dGPU awake
+        GSK_RENDERER "ngl"
         // Heavier, macOS-like glyphs
         FREETYPE_PROPERTIES "cff:no-stem-darkening=0 autofitter:no-stem-darkening=0"
         QT_QPA_PLATFORM "wayland"
@@ -10,6 +12,10 @@
         QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
         XDG_CURRENT_DESKTOP "niri"
         XDG_SESSION_TYPE "wayland"
+        // Japanese input (fcitx5 + mozc). GTK uses Wayland text-input, so no GTK_IM_MODULE.
+        XMODIFIERS "@im=fcitx"
+        QT_IM_MODULE "fcitx"
+        SDL_IM_MODULE "fcitx"
     }
 
     cursor {
@@ -31,4 +37,17 @@
 
     hotkey-overlay {
        skip-at-startup
+    }
+
+    // Recent-windows switcher. Defining binds replaces niri's defaults; Alt+` and
+    // Alt+Shift+` are left out so fcitx5 can use Alt+` to toggle Japanese input.
+    recent-windows {
+        binds {
+            Alt+Tab         { next-window; }
+            Alt+Shift+Tab   { previous-window; }
+            Mod+Tab         { next-window; }
+            Mod+Shift+Tab   { previous-window; }
+            Mod+grave       { next-window filter="app-id"; }
+            Mod+Shift+grave { previous-window filter="app-id"; }
+        }
     }

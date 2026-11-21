@@ -92,3 +92,7 @@ To fetch changes from GitHub, first commit local edits, then run `chezmoi update
 `scripts/install-upstream-apps.sh` installs official upstream builds under `~/.local/opt/zen` and `~/.local/zed.app`. The bootstrap uses these rather than pacman packages so built-in automatic updates remain available. Launch Zen with `zen-browser` and Zed with `zed`; user desktop entries take precedence over system entries. Quit old instances before opening the replacements.
 
 The Zen launcher selects the existing `Default (release)` profile. Set `ZEN_PROFILE` to select a different named profile. Zed settings explicitly enable `auto_update`. After migrating, remove old packages with `sudo pacman -R zen-browser-bin zed` if still installed.
+
+### Luciole file manager
+
+Install the AUR packages with `--aur` to get Luciole. Set it as the folder handler with `xdg-mime default dev.noctalia.luciole.desktop inode/directory`. Super+E and the Noctalia dock open Luciole; Noctalia renders its palette using Luciole’s installed theme template. The repo package list includes preview and archive helpers.

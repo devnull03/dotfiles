@@ -1,0 +1,16 @@
+[Hotkey]
+# Enumerate when holding modifier of Toggle key
+EnumerateWithTriggerKeys=True
+# Skip first input method while enumerating
+EnumerateSkipFirst=False
+
+[Hotkey/TriggerKeys]
+# Alt+` (Windows-style; freed from niri's recent-windows in misc.kdl), Ctrl+Space, JIS Hankaku/Zenkaku
+0=Alt+grave
+1=Control+space
+2=Zenkaku_Hankaku
+
+[Behavior]
+# Share input state across all windows (like Windows IME)
+ShareInputState=All
+ShowInputMethodInformation=True
