@@ -106,6 +106,9 @@ binds {
     // ─── Workspace Switching ───
     Mod+WheelScrollDown                 cooldown-ms=150 { focus-workspace-down; }
     Mod+WheelScrollUp                   cooldown-ms=150 { focus-workspace-up; }
+    // Also sent by the MX Master haptic-panel up/down swipes (OpenLogi).
+    Mod+Page_Down                       { focus-workspace-down; }
+    Mod+Page_Up                         { focus-workspace-up; }
     Mod+CTRL+WheelScrollDown            cooldown-ms=150 { move-column-to-workspace-down; }
     Mod+CTRL+WheelScrollUp              cooldown-ms=150 { move-column-to-workspace-up; }
 

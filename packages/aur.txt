@@ -12,3 +12,4 @@ vicinae-bin
 whitesur-icon-theme
 zoom
 # Zen and Zed use upstream user installs; see scripts/install-upstream-apps.sh.
+openlogi-bin
