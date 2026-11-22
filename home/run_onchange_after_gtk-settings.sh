@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# macOS-style desktop settings: WhiteSur icons if installed.
+# macOS-style desktop settings: MacTahoe icons if installed.
 command -v gsettings >/dev/null || exit 0
-if [[ -d /usr/share/icons/WhiteSur-dark || -d "$HOME/.local/share/icons/WhiteSur-dark" ]]; then
-  gsettings set org.gnome.desktop.interface icon-theme 'WhiteSur-dark'
+if [[ -d /usr/share/icons/MacTahoe-dark || -d "$HOME/.local/share/icons/MacTahoe-dark" ]]; then
+  gsettings set org.gnome.desktop.interface icon-theme 'MacTahoe-dark'
 fi
 if [[ -d /usr/share/icons/macOS ]]; then
   gsettings set org.gnome.desktop.interface cursor-theme 'macOS'
