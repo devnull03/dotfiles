@@ -165,6 +165,9 @@ binds {
     CTRL+Shift+1                        { screenshot; }
     CTRL+Shift+2                        { screenshot-screen; }
     CTRL+Shift+3                        { screenshot-window; }
+    Print                               { screenshot; }
+    Ctrl+Print                          { screenshot-screen; }
+    Alt+Print                           { screenshot-window; }
 
     // ─── Emergency Escape Key ───
     // Use this when a fullscreen app blocks your keybinds.
